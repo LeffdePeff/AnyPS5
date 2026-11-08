@@ -132,9 +132,8 @@ void APS5_VABI sceLibcInternalUnknown6_026_U4JPmRpm70c_nid_no_patch(void* self) 
 }
 APS5_EXPORT("U4JP-R+-70c", sceLibcInternalUnknown6_026_U4JPmRpm70c_nid_no_patch);
 
-int APS5_VABI _ZNSt22_Future_error_categoryD1Ev_nid_postfix() {
-    NotImplemented_nid_no_patch(__func__);
-    return 0;
+void APS5_VABI _ZNSt22_Future_error_categoryD1Ev_nid_postfix(LibcException::CategoryObject* self) {
+    _ZNSt14error_categoryD1Ev_nid_postfix(self);
 }
 
 int APS5_VABI sceLibcInternalUnknown6_028_fIskTFX9p68_nid_no_patch() {
@@ -201,9 +200,8 @@ int APS5_VABI _ZNSt8time_putIwSt19ostreambuf_iteratorIwSt11char_traitsIwEEEC1Em_
     return 0;
 }
 
-int APS5_VABI _ZNSt18bad_variant_accessD1Ev_nid_postfix() {
-    NotImplemented_nid_no_patch(__func__);
-    return 0;
+void APS5_VABI _ZNSt18bad_variant_accessD1Ev_nid_postfix(LibcException::ExceptionObject* self) {
+    _ZNSt9exceptionD1Ev_nid_postfix(self);
 }
 
 int APS5_VABI sceLibcInternalUnknown6_040_9pPbNXw5N9E_nid_no_patch() {
@@ -624,9 +622,9 @@ int APS5_VABI _ZNSt13basic_filebufIwSt11char_traitsIwEE4syncEv_nid_postfix() {
     return 0;
 }
 
-int APS5_VABI _ZNSt18bad_variant_accessD0Ev_nid_postfix() {
-    NotImplemented_nid_no_patch(__func__);
-    return 0;
+void APS5_VABI _ZNSt18bad_variant_accessD0Ev_nid_postfix(LibcException::ExceptionObject* self) {
+    _ZNSt18bad_variant_accessD1Ev_nid_postfix(self);
+    _ZdlPv_nid_postfix(self);
 }
 
 int APS5_VABI _ZNSt13basic_filebufIwSt11char_traitsIwEE7_UnlockEv_nid_postfix() {

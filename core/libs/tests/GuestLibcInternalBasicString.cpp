@@ -1,4 +1,5 @@
 #include "prx/libSceLibcInternal/include/Api.hpp"
+#include "prx/libSceLibcInternal/include/InventoryExports2.hpp"
 #include "prx/libc/include/Api.hpp"
 #include "prx/libc/include/ApplicationHeap.hpp"
 #include "prx/libc/include/GuestLocale.hpp"
@@ -132,6 +133,8 @@ void CheckReporters() {
     String string = Empty();
     RequireOutOfRange([&] { _ZNKSs5_XranEv_nid_postfix(&string); }, "_Xran throws out_of_range");
     RequireLengthError([&] { _ZNKSs5_XlenEv_nid_postfix(&string); }, "_Xlen throws length_error");
+    RequireOutOfRange([&] { sceLibcInternalWideStringXran_nid_no_patch(&string); }, "wstring _Xran throws out_of_range");
+    RequireLengthError([&] { _ZNKSbIwSt11char_traitsIwESaIwEE5_XlenEv_nid_postfix(&string); }, "wstring _Xlen throws length_error");
 }
 
 void CheckAssignCharacters() {

@@ -2,6 +2,7 @@
 #include <cstddef>
 #include <cstdint>
 #include "SceTypes.hpp"
+#include "prx/libc/include/Api.hpp"
 #include "prx/libc/include/General.hpp"
 
 extern "C" {
@@ -333,16 +334,14 @@ int APS5_VABI _ZN6Dinkum7threads21thread_resource_errorD1Ev_nid_postfix() {
     return 0;
 }
 
-int APS5_VABI _ZNKSbIwSt11char_traitsIwESaIwEE5_XlenEv_nid_postfix() {
-    NotImplemented_nid_no_patch(__func__);
-    return 0;
+[[noreturn]] void APS5_VABI _ZNKSbIwSt11char_traitsIwESaIwEE5_XlenEv_nid_postfix(const void*) {
+    _ZSt14_Xlength_errorPKc_nid_postfix("string too long");
 }
 
-int APS5_VABI sceLibcInternalUnknown_GvYZax3i_Qk_nid_no_patch() {
-    NotImplemented_nid_no_patch(__func__);
-    return 0;
+[[noreturn]] void APS5_VABI sceLibcInternalWideStringXran_nid_no_patch(const void*) {
+    _ZSt14_Xout_of_rangePKc_nid_postfix("invalid string position");
 }
-APS5_EXPORT("GvYZax3i-Qk", sceLibcInternalUnknown_GvYZax3i_Qk_nid_no_patch);
+APS5_EXPORT("GvYZax3i-Qk", sceLibcInternalWideStringXran_nid_no_patch);
 
 int APS5_VABI sceLibcInternalUnknown_WMw8eIs0kjM_nid_no_patch() {
     NotImplemented_nid_no_patch(__func__);

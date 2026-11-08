@@ -4,6 +4,7 @@
 #include "prx/libc/include/ApplicationHeap.hpp"
 #include "prx/libc/include/GuestLocale.hpp"
 #include "prx/libc/include/general/VabiMacros.hpp"
+#include "prx/libSceLibcInternal/include/InventoryExports6.hpp"
 #include <array>
 #include <cstddef>
 #include <cstdio>
@@ -37,6 +38,25 @@ int APS5_VABI TestPosixAlign(void** pointer, std::size_t, std::size_t size) {
 }
 
 using Destructor = void (APS5_VABI*)(void*);
+
+void CheckBadVariantAccess() {
+    auto* object = static_cast<LibcException::ExceptionObject*>(_Znwm_nid_postfix(sizeof(LibcException::ExceptionObject)));
+    const LibcException::ExceptionObject expected{&releases, "untouched"};
+    *object = expected;
+    releases = 0;
+    _ZNSt18bad_variant_accessD1Ev_nid_postfix(object);
+    Require(releases == 0 && std::memcmp(object, &expected, sizeof(expected)) == 0, "bad_variant_access D1 leaves the object and its storage");
+    _ZNSt18bad_variant_accessD0Ev_nid_postfix(object);
+    Require(releases == 1 && lastReleased == object, "bad_variant_access D0 releases the object through operator delete");
+}
+
+void CheckFutureErrorCategory() {
+    const LibcException::CategoryObject* future = _ZSt15future_categoryv_nid_postfix();
+    LibcException::CategoryObject object = *future;
+    releases = 0;
+    _ZNSt22_Future_error_categoryD1Ev_nid_postfix(&object);
+    Require(releases == 0 && object.vtable == future->vtable, "_Future_error_category D1 leaves the object and its storage");
+}
 
 void CheckMessageDestructor(Destructor destructor, const char* text) {
     LibcException::ExceptionObject object{};
@@ -120,6 +140,8 @@ int main() {
     CheckSystemErrorConstructor();
     CheckMessageDestructor(&sceLibcInternalOverflowErrorBaseDestructor_nid_no_patch, "value too large");
     CheckMessageDestructor(&sceLibcInternalUnderflowErrorBaseDestructor_nid_no_patch, "value too small");
+    CheckBadVariantAccess();
+    CheckFutureErrorCategory();
     CheckFutureError();
 
     std::puts("libc internal exception base-object destructor checks passed");
