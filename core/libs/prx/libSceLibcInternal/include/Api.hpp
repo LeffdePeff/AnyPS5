@@ -181,6 +181,10 @@ void APS5_VABI sceLibcInternalMutexBaseDestructor_nid_no_patch(PthreadMutex* sel
 void APS5_VABI sceLibcInternalMutexLock_nid_no_patch(PthreadMutex* self);
 void APS5_VABI sceLibcInternalMutexUnlock_nid_no_patch(PthreadMutex* self);
 [[noreturn]] void APS5_VABI sceLibcInternalRngAbort_nid_no_patch(const char* message);
+char APS5_VABI _ZNKSt5ctypeIcE10do_tolowerEc_nid_postfix(const void* self, char character);
+const char* APS5_VABI _ZNKSt5ctypeIcE10do_tolowerEPcPKc_nid_postfix(const void* self, char* first, const char* last);
+char APS5_VABI _ZNKSt5ctypeIcE10do_toupperEc_nid_postfix(const void* self, char character);
+const char* APS5_VABI _ZNKSt5ctypeIcE10do_toupperEPcPKc_nid_postfix(const void* self, char* first, const char* last);
 [[noreturn]] void APS5_VABI _ZNKSs5_XranEv_nid_postfix(const GuestLocale::String* self);
 [[noreturn]] void APS5_VABI _ZNKSs5_XlenEv_nid_postfix(const GuestLocale::String* self);
 GuestLocale::String* APS5_VABI _ZNSs5eraseEmm_nid_postfix(GuestLocale::String* self, std::size_t position, std::size_t count);
