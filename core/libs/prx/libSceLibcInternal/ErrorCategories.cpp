@@ -29,16 +29,16 @@ TFunction Slot(const LibcException::CategoryObject* category, std::size_t index)
 extern "C" {
 
 void APS5_VABI _ZNSt22_Future_error_categoryD1Ev_nid_postfix(void* self) {
-    _ZNSt14error_categoryD1Ev_nid_postfix(static_cast<LibcException::CategoryObject*>(self));
+    _ZNSt14error_categoryD2Ev_nid_postfix(static_cast<LibcException::CategoryObject*>(self));
 }
 
 void APS5_VABI sceLibcInternalIostreamErrorCategoryCompleteDestructor_nid_no_patch(void* self) {
-    _ZNSt14error_categoryD1Ev_nid_postfix(static_cast<LibcException::CategoryObject*>(self));
+    _ZNSt14error_categoryD2Ev_nid_postfix(static_cast<LibcException::CategoryObject*>(self));
 }
 APS5_EXPORT("27Z-Cx1jbkU", sceLibcInternalIostreamErrorCategoryCompleteDestructor_nid_no_patch);
 
 void APS5_VABI _ZNSt23_Generic_error_categoryD0Ev_nid_postfix(void* self) {
-    _ZNSt14error_categoryD1Ev_nid_postfix(static_cast<LibcException::CategoryObject*>(self));
+    sceLibcInternalGenericErrorCategoryDestructor_nid_no_patch(self);
     _ZdlPv_nid_postfix(self);
 }
 
