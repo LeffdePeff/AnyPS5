@@ -1,5 +1,7 @@
 #include "prx/libc/include/Api.hpp"
+#include "prx/libc/include/ApplicationHeap.hpp"
 #include "prx/libc/include/exceptions/Runtime.hpp"
+#include <array>
 #include <cstdio>
 #include <cstring>
 #include <cstdlib>
@@ -84,6 +86,30 @@ static void TrackedFree(void* pointer) {
     originalFree(pointer);
 }
 
+static void* APS5_VABI TestAllocate(std::size_t size) { return std::malloc(size ? size : 1); }
+static void APS5_VABI TestRelease(void* pointer) {
+    if (pointer && (pointer == foreignObject || pointer == foreignMessage || pointer == watchedMessage)) FixtureFail(66);
+    if (pointer && pointer == watchedObject && ++objectFrees != 1) FixtureFail(67);
+    std::free(pointer);
+}
+static void* APS5_VABI TestCalloc(std::size_t count, std::size_t size) { return std::calloc(count, size); }
+static void* APS5_VABI TestReallocate(void* pointer, std::size_t size) { return std::realloc(pointer, size); }
+static void* APS5_VABI TestAlign(std::size_t, std::size_t size) { return std::malloc(size); }
+static void* APS5_VABI TestRealign(void* pointer, std::size_t size, std::size_t) { return std::realloc(pointer, size); }
+static int APS5_VABI TestPosixAlign(void** pointer, std::size_t, std::size_t size) {
+    *pointer = std::malloc(size);
+    return *pointer ? 0 : 12;
+}
+
+static void RegisterHeap() {
+    const std::array<void*, 10> api{
+        reinterpret_cast<void*>(&TestAllocate), reinterpret_cast<void*>(&TestRelease),
+        reinterpret_cast<void*>(&TestCalloc), reinterpret_cast<void*>(&TestReallocate),
+        reinterpret_cast<void*>(&TestAlign), reinterpret_cast<void*>(&TestRealign),
+        reinterpret_cast<void*>(&TestPosixAlign), nullptr, nullptr, nullptr};
+    ApplicationHeapRegister_nid_no_patch(api.data());
+}
+
 static void ReplaceFree(std::uintptr_t address) {
     DWORD protection;
     if (!VirtualProtect(freeSlot, sizeof(*freeSlot), PAGE_READWRITE, &protection)) FixtureFail(53);
@@ -120,7 +146,8 @@ static int TestVtable(const char* mode) {
     const bool plain = std::strstr(mode, "plain") != nullptr;
     const bool deleting = std::strstr(mode, "delete") != nullptr;
     const bool destroying = deleting || std::strstr(mode, "destroy") != nullptr;
-    auto* actual = static_cast<LibcException::ExceptionObject*>(std::malloc(sizeof(LibcException::ExceptionObject)));
+    if (deleting) RegisterHeap();
+    auto* actual = static_cast<LibcException::ExceptionObject*>(deleting ? _Znwm_nid_postfix(sizeof(LibcException::ExceptionObject)) : std::malloc(sizeof(LibcException::ExceptionObject)));
     auto* other = static_cast<LibcException::ExceptionObject*>(std::malloc(sizeof(LibcException::ExceptionObject)));
     if (!actual || !other) FixtureFail(57);
     actual->message = other->message = nullptr;
