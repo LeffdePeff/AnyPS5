@@ -1,8 +1,8 @@
 #include "prx/libSceLibcInternal/include/Api.hpp"
-#include "prx/libSceLibcInternal/include/InventoryExports2.hpp"
 #include "prx/libc/include/Api.hpp"
 #include "prx/libc/include/ApplicationHeap.hpp"
 #include "prx/libc/include/GuestLocale.hpp"
+#include "prx/libc/GuestStringStorage.hpp"
 #include "prx/libc/include/general/VabiMacros.hpp"
 #include <array>
 #include <cstddef>
@@ -12,7 +12,9 @@
 #include <cstring>
 #include <functional>
 #include <limits>
+#include <stdexcept>
 #include <string>
+#include <string_view>
 
 struct TypeRecord { const void* vtable; const char* name; const TypeRecord* base; };
 
@@ -133,7 +135,7 @@ void CheckReporters() {
     String string = Empty();
     RequireOutOfRange([&] { _ZNKSs5_XranEv_nid_postfix(&string); }, "_Xran throws out_of_range");
     RequireLengthError([&] { _ZNKSs5_XlenEv_nid_postfix(&string); }, "_Xlen throws length_error");
-    RequireOutOfRange([&] { sceLibcInternalWideStringXran_nid_no_patch(&string); }, "wstring _Xran throws out_of_range");
+    RequireOutOfRange([&] { _ZNKSbIwSt11char_traitsIwESaIwEE5_XranEv_nid_postfix(&string); }, "wstring _Xran throws out_of_range");
     RequireLengthError([&] { _ZNKSbIwSt11char_traitsIwESaIwEE5_XlenEv_nid_postfix(&string); }, "wstring _Xlen throws length_error");
 }
 
@@ -234,6 +236,155 @@ void CheckAppendCharacters() {
     GuestLocale::ReleaseStringStorage(string);
 }
 
+void CheckNarrowInsert() {
+    String string = Make("abcdef");
+    Require(_ZNSs6insertEmmc_nid_postfix(&string, 2, 3, '-') == &string, "insert(pos, n, c) returns *this");
+    Require(Holds(string, "ab---cdef") && string.capacity == 15, "insert(pos, n, c) inserts in the inline buffer");
+    _ZNSs6insertEmmc_nid_postfix(&string, string.size, 2, '!');
+    Require(Holds(string, "ab---cdef!!"), "insert(size(), n, c) appends");
+    _ZNSs6insertEmmc_nid_postfix(&string, 0, 10, '<');
+    Require(Holds(string, "<<<<<<<<<<ab---cdef!!") && string.capacity == 31, "insert(0, n, c) grows to size | 15");
+    _ZNSs6insertEmmc_nid_postfix(&string, 4, 0, '?');
+    Require(Holds(string, "<<<<<<<<<<ab---cdef!!"), "insert(pos, 0, c) is unchanged");
+    RequireOutOfRange([&] { _ZNSs6insertEmmc_nid_postfix(&string, string.size + 1, 1, 'x'); }, "insert(pos > size(), n, c) throws out_of_range");
+    RequireLengthError([&] { _ZNSs6insertEmmc_nid_postfix(&string, 0, NoPosition - 5, 'x'); }, "insert past max_size() throws length_error");
+    Require(Holds(string, "<<<<<<<<<<ab---cdef!!"), "a failed insert leaves the string unchanged");
+    GuestLocale::ReleaseStringStorage(string);
+}
+
+template<typename TCall>
+bool ThrowsInvalidArgument(TCall call) {
+    try {
+        call();
+    } catch (const std::invalid_argument&) {
+        return true;
+    }
+    return false;
+}
+
+void CheckNarrowCopy() {
+    String string = Make("abcdef");
+    _ZNSs5_CopyEmm_nid_postfix(&string, 40, 6);
+    Require(Holds(string, "abcdef") && string.capacity == 47, "_Copy(n, size()) grows to n | 15 and keeps the text");
+    _ZNSs5_CopyEmm_nid_postfix(&string, 20, 4);
+    Require(Holds(string, "abcd") && string.capacity == 31, "_Copy(n, length) reallocates to n | 15 and keeps length characters");
+    _ZNSs5_CopyEmm_nid_postfix(&string, 10, 3);
+    Require(Holds(string, "abc") && string.capacity == 15, "_Copy to an inline size moves back into the buffer");
+    _ZNSs5_CopyEmm_nid_postfix(&string, 16, 3);
+    Require(Holds(string, "abc") && string.capacity == 31, "_Copy past the inline buffer moves to the heap");
+    Require(ThrowsInvalidArgument([&] { _ZNSs5_CopyEmm_nid_postfix(&string, 40, 4); }) && Holds(string, "abc"), "_Copy keeping more than size() characters throws");
+    Require(ThrowsInvalidArgument([&] { _ZNSs5_CopyEmm_nid_postfix(&string, 2, 3); }) && Holds(string, "abc"), "_Copy keeping more than n characters throws");
+    RequireLengthError([&] { _ZNSs5_CopyEmm_nid_postfix(&string, NoPosition, 3); }, "_Copy past max_size() throws length_error");
+    GuestLocale::ReleaseStringStorage(string);
+}
+
+constexpr std::size_t WideInlineCapacity = 7;
+constexpr std::size_t WideNoPosition = NoPosition / sizeof(char16_t);
+
+String WideEmpty() {
+    String string{};
+    string.reserved = Allocator;
+    string.capacity = WideInlineCapacity;
+    return string;
+}
+
+const char16_t* WideData(const String& string) {
+    return reinterpret_cast<const char16_t*>(string.capacity > WideInlineCapacity ? string.pointer : string.buffer);
+}
+
+bool WideHolds(const String& string, std::u16string_view text) {
+    return string.reserved == Allocator && string.size == text.size()
+        && std::memcmp(WideData(string), text.data(), text.size() * sizeof(char16_t)) == 0 && WideData(string)[text.size()] == 0;
+}
+
+String WideMake(std::u16string_view text) {
+    String string = WideEmpty();
+    _ZNSbIwSt11char_traitsIwESaIwEE6assignEPKwm_nid_postfix(&string, text.data(), text.size());
+    return string;
+}
+
+void WideRelease(String& string) {
+    if (string.capacity > WideInlineCapacity) GuestStringStorage::Deallocate(string.pointer, (string.capacity + 1) * sizeof(char16_t));
+    string = WideEmpty();
+}
+
+void CheckWideAssign() {
+    String string = WideEmpty();
+    Require(_ZNSbIwSt11char_traitsIwESaIwEE6assignEPKwm_nid_postfix(&string, u"abc", 3) == &string, "wstring assign(s, n) returns *this");
+    Require(WideHolds(string, u"abc") && string.capacity == 7, "wstring assign(s, n) stays in the 7-character buffer");
+    _ZNSbIwSt11char_traitsIwESaIwEE6assignEPKwm_nid_postfix(&string, u"abcdefg", 7);
+    Require(WideHolds(string, u"abcdefg") && string.capacity == 7, "a 7-character wstring fits the buffer");
+    _ZNSbIwSt11char_traitsIwESaIwEE6assignEPKwm_nid_postfix(&string, u"abcdefgh", 8);
+    Require(WideHolds(string, u"abcdefgh") && string.capacity == 15, "an 8-character wstring moves to the heap with capacity size | 7");
+    _ZNSbIwSt11char_traitsIwESaIwEE6assignEPKwm_nid_postfix(&string, WideData(string) + 2, 3);
+    Require(WideHolds(string, u"cde") && string.capacity == 15, "wstring assign(s, n) from inside *this reuses the storage");
+    _ZNSbIwSt11char_traitsIwESaIwEE6assignEmw_nid_postfix(&string, 20, u'y');
+    Require(WideHolds(string, std::u16string(20, u'y')) && string.capacity == 23, "wstring assign(n, c) grows to n | 7");
+    _ZNSbIwSt11char_traitsIwESaIwEE6assignEmw_nid_postfix(&string, 0, u'z');
+    Require(WideHolds(string, u"") && string.capacity == 23, "wstring assign(0, c) keeps the storage");
+    RequireLengthError([&] { _ZNSbIwSt11char_traitsIwESaIwEE6assignEmw_nid_postfix(&string, WideNoPosition, u'a'); }, "wstring assign past max_size() throws length_error");
+    WideRelease(string);
+
+    String source = WideMake(u"0123456789abcdefghij");
+    String target = WideMake(u"old");
+    Require(_ZNSbIwSt11char_traitsIwESaIwEE6assignERKS2_mm_nid_postfix(&target, &source, 4, 3) == &target && WideHolds(target, u"456"), "wstring assign(str, pos, n) copies the substring");
+    _ZNSbIwSt11char_traitsIwESaIwEE6assignERKS2_mm_nid_postfix(&target, &source, 2, NoPosition);
+    Require(WideHolds(target, u"23456789abcdefghij") && target.capacity == 23, "wstring assign(str, pos, npos) copies to the end");
+    RequireOutOfRange([&] { _ZNSbIwSt11char_traitsIwESaIwEE6assignERKS2_mm_nid_postfix(&target, &source, 21, 1); }, "wstring assign(str, pos > size(), n) throws out_of_range");
+    _ZNSbIwSt11char_traitsIwESaIwEE6assignERKS2_mm_nid_postfix(&source, &source, 5, 6);
+    Require(WideHolds(source, u"56789a") && source.capacity == 23, "wstring assign(*this, pos, n) keeps the storage");
+    WideRelease(source);
+    WideRelease(target);
+}
+
+void CheckWideAppend() {
+    String source = WideMake(u"ABCDEFGH");
+    String string = WideMake(u"ab");
+    Require(_ZNSbIwSt11char_traitsIwESaIwEE6appendERKS2_mm_nid_postfix(&string, &source, 1, 3) == &string && WideHolds(string, u"abBCD") && string.capacity == 7, "wstring append(str, pos, n) appends in the buffer");
+    _ZNSbIwSt11char_traitsIwESaIwEE6appendERKS2_mm_nid_postfix(&string, &source, 6, NoPosition);
+    Require(WideHolds(string, u"abBCDGH") && string.capacity == 7, "wstring append(str, pos, npos) fills the buffer");
+    _ZNSbIwSt11char_traitsIwESaIwEE6appendERKS2_mm_nid_postfix(&string, &string, 0, NoPosition);
+    Require(WideHolds(string, u"abBCDGHabBCDGH") && string.capacity == 15, "wstring append(*this) across a reallocation");
+    RequireOutOfRange([&] { _ZNSbIwSt11char_traitsIwESaIwEE6appendERKS2_mm_nid_postfix(&string, &source, 9, 0); }, "wstring append(str, pos > size(), n) throws out_of_range");
+    Require(_ZNSbIwSt11char_traitsIwESaIwEE6appendEmw_nid_postfix(&string, 3, u'!') == &string && WideHolds(string, u"abBCDGHabBCDGH!!!") && string.capacity == 23, "wstring append(n, c) grows to size | 7");
+    RequireLengthError([&] { _ZNSbIwSt11char_traitsIwESaIwEE6appendEmw_nid_postfix(&string, WideNoPosition - 5, u'x'); }, "wstring append past max_size() throws length_error");
+    _ZNSbIwSt11char_traitsIwESaIwEE6appendEmw_nid_postfix(&string, 3000, u'#');
+    Require(string.size == 3017 && string.capacity == (3017 | 7) && string.reserved == Allocator, "wstring append(n, c) grows a large allocation");
+    Require((reinterpret_cast<std::uintptr_t>(string.pointer) & 0x1f) == 0, "large wide storage is 32-byte aligned");
+    Require(WideData(string)[16] == u'!' && WideData(string)[17] == u'#' && WideData(string)[3016] == u'#' && WideData(string)[3017] == 0, "wstring append(n, c) keeps the prefix and terminates");
+    WideRelease(source);
+    WideRelease(string);
+}
+
+void CheckWideEraseInsert() {
+    String string = WideMake(u"0123456789abcdefghij");
+    Require(_ZNSbIwSt11char_traitsIwESaIwEE5eraseEmm_nid_postfix(&string, 2, 3) == &string && WideHolds(string, u"0156789abcdefghij") && string.capacity == 23, "wstring erase(pos, n) removes the range");
+    _ZNSbIwSt11char_traitsIwESaIwEE5eraseEmm_nid_postfix(&string, 10, NoPosition);
+    Require(WideHolds(string, u"0156789abc") && string.capacity == 23, "wstring erase(pos, npos) truncates");
+    RequireOutOfRange([&] { _ZNSbIwSt11char_traitsIwESaIwEE5eraseEmm_nid_postfix(&string, 11, 0); }, "wstring erase(pos > size(), n) throws out_of_range");
+    Require(_ZNSbIwSt11char_traitsIwESaIwEE6insertEmmw_nid_postfix(&string, 2, 3, u'-') == &string && WideHolds(string, u"01---56789abc"), "wstring insert(pos, n, c) inserts");
+    _ZNSbIwSt11char_traitsIwESaIwEE6insertEmmw_nid_postfix(&string, string.size, 2, u'!');
+    Require(WideHolds(string, u"01---56789abc!!") && string.capacity == 23, "wstring insert(size(), n, c) appends");
+    _ZNSbIwSt11char_traitsIwESaIwEE6insertEmmw_nid_postfix(&string, 0, 10, u'<');
+    Require(WideHolds(string, u"<<<<<<<<<<01---56789abc!!") && string.capacity == 31, "wstring insert(0, n, c) grows to size | 7");
+    RequireOutOfRange([&] { _ZNSbIwSt11char_traitsIwESaIwEE6insertEmmw_nid_postfix(&string, string.size + 1, 1, u'x'); }, "wstring insert(pos > size(), n, c) throws out_of_range");
+    RequireLengthError([&] { _ZNSbIwSt11char_traitsIwESaIwEE6insertEmmw_nid_postfix(&string, 0, WideNoPosition, u'x'); }, "wstring insert past max_size() throws length_error");
+    WideRelease(string);
+}
+
+void CheckWideCopy() {
+    String string = WideMake(u"abcdef");
+    _ZNSbIwSt11char_traitsIwESaIwEE5_CopyEmm_nid_postfix(&string, 40, 6);
+    Require(WideHolds(string, u"abcdef") && string.capacity == 47, "wstring _Copy(n, size()) grows to n | 7");
+    _ZNSbIwSt11char_traitsIwESaIwEE5_CopyEmm_nid_postfix(&string, 20, 4);
+    Require(WideHolds(string, u"abcd") && string.capacity == 23, "wstring _Copy(n, length) keeps length characters");
+    _ZNSbIwSt11char_traitsIwESaIwEE5_CopyEmm_nid_postfix(&string, 5, 3);
+    Require(WideHolds(string, u"abc") && string.capacity == 7, "wstring _Copy to an inline size moves back into the buffer");
+    Require(ThrowsInvalidArgument([&] { _ZNSbIwSt11char_traitsIwESaIwEE5_CopyEmm_nid_postfix(&string, 40, 4); }) && WideHolds(string, u"abc"), "wstring _Copy keeping more than size() characters throws");
+    RequireLengthError([&] { _ZNSbIwSt11char_traitsIwESaIwEE5_CopyEmm_nid_postfix(&string, WideNoPosition, 3); }, "wstring _Copy past max_size() throws length_error");
+    WideRelease(string);
+}
+
 void CheckErase() {
     String string = Make("0123456789abcdefghij");
     Require(_ZNSs5eraseEmm_nid_postfix(&string, 2, 3) == &string, "erase returns *this");
@@ -268,6 +419,12 @@ int main() {
     CheckAppendSubstring();
     CheckAppendCharacters();
     CheckErase();
+    CheckNarrowInsert();
+    CheckNarrowCopy();
+    CheckWideAssign();
+    CheckWideAppend();
+    CheckWideEraseInsert();
+    CheckWideCopy();
     Require(live == before, "every string allocation is released");
     std::puts("libc internal basic_string: ok");
     return 0;

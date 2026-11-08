@@ -5,6 +5,7 @@
 #include "SceTypes.hpp"
 #include <cstdio>
 #include <cstdlib>
+#include <exception>
 #include <thread>
 
 namespace {
@@ -32,6 +33,45 @@ int TryLock(PthreadMutex* mutex) {
 int LockAndUnlock(PthreadMutex* mutex) {
     if (_Mtxlock_nid_postfix(mutex) != 0) return 1;
     return _Mtxunlock_nid_postfix(mutex);
+}
+
+template<typename TCall>
+bool Throws(TCall call) {
+    try {
+        call();
+    } catch (const std::exception&) {
+        return true;
+    }
+    return false;
+}
+
+void CheckMutexObject() {
+    PthreadMutex complete = nullptr;
+    _ZNSt6_MutexC1Ev_nid_postfix(&complete);
+    Require(complete != nullptr, "_Mutex::_Mutex (C1) creates a mutex");
+    sceLibcInternalMutexLock_nid_no_patch(&complete);
+    sceLibcInternalMutexLock_nid_no_patch(&complete);
+    Require(OnOtherThread(TryLock, &complete) != 0, "_Mutex::_Lock holds the mutex and is recursive");
+    sceLibcInternalMutexUnlock_nid_no_patch(&complete);
+    Require(OnOtherThread(TryLock, &complete) != 0, "_Mutex stays held until every _Lock is matched");
+    sceLibcInternalMutexUnlock_nid_no_patch(&complete);
+    Require(OnOtherThread(LockAndUnlock, &complete) == 0, "_Mutex::_Unlock releases the mutex");
+    Require(Throws([&] { sceLibcInternalMutexUnlock_nid_no_patch(&complete); }), "_Mutex::_Unlock of a released mutex throws");
+    sceLibcInternalMutexCompleteDestructor_nid_no_patch(&complete);
+    Require(Throws([&] { sceLibcInternalMutexLock_nid_no_patch(&complete); }), "_Mutex::_Lock after ~_Mutex (D1) throws");
+
+    PthreadMutex base = nullptr;
+    sceLibcInternalMutexBaseConstructor_nid_no_patch(&base);
+    Require(base != nullptr, "_Mutex::_Mutex (C2) creates a mutex");
+    sceLibcInternalMutexLock_nid_no_patch(&base);
+    Require(OnOtherThread(TryLock, &base) != 0, "_Mutex::_Lock on a C2 mutex holds it");
+    sceLibcInternalMutexUnlock_nid_no_patch(&base);
+    Require(OnOtherThread(LockAndUnlock, &base) == 0, "a C2 mutex is released by _Unlock");
+    sceLibcInternalMutexBaseDestructor_nid_no_patch(&base);
+    Require(Throws([&] { sceLibcInternalMutexBaseDestructor_nid_no_patch(&base); }), "~_Mutex (D2) of a destroyed mutex throws");
+
+    Require(Throws([] { _ZNSt6_MutexC1Ev_nid_postfix(nullptr); }), "_Mutex::_Mutex on a null object throws");
+    Require(Throws([] { sceLibcInternalMutexLock_nid_no_patch(nullptr); }), "_Mutex::_Lock on a null object throws");
 }
 
 }
@@ -89,5 +129,7 @@ int main() {
     Require(_ZNSt8__sce_v29_Mtx_lockEPP13pthread_mutex_nid_postfix(reinterpret_cast<void**>(&plainOverride)) == Busy, "a plain override mutex refuses a second lock");
     Require(_ZNSt8__sce_v211_Mtx_unlockEPP13pthread_mutex_nid_postfix(reinterpret_cast<void**>(&plainOverride)) == 0, "the plain override mutex unlocks");
     Require(_ZNSt8__sce_v212_Mtx_destroyEPP13pthread_mutex_nid_postfix(reinterpret_cast<void**>(&plainOverride)) == 0, "the plain override mutex is destroyed");
+
+    CheckMutexObject();
     return 0;
 }

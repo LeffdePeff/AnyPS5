@@ -47,4 +47,19 @@ APS5_EXPORT("MAalgQhejPc", sceLibcInternalGenericErrorCategoryDestructor_nid_no_
 }
 APS5_EXPORT("saSUnPWLq9E", sceLibcInternalXoverflowError_nid_no_patch);
 
+void APS5_VABI _ZNSt18bad_variant_accessD1Ev_nid_postfix(void* self) {
+    _ZNSt9exceptionD1Ev_nid_postfix(static_cast<LibcException::ExceptionObject*>(self));
+}
+
+void APS5_VABI _ZNSt18bad_variant_accessD0Ev_nid_postfix(void* self) {
+    _ZNSt18bad_variant_accessD1Ev_nid_postfix(self);
+    _ZdlPv_nid_postfix(self);
+}
+
+void APS5_VABI sceLibcInternalBadExceptionDeletingDestructor_nid_no_patch(void* self) {
+    _ZNSt9exceptionD1Ev_nid_postfix(static_cast<LibcException::ExceptionObject*>(self));
+    _ZdlPv_nid_postfix(self);
+}
+APS5_EXPORT("lX9M5u0e48k", sceLibcInternalBadExceptionDeletingDestructor_nid_no_patch);
+
 }

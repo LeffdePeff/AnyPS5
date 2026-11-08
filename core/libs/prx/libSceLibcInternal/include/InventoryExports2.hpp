@@ -49,8 +49,6 @@ int APS5_VABI _ZNKSt7_MpunctIcE14do_curr_symbolEv_nid_postfix();
 int APS5_VABI _ZNKSt5ctypeIcE10do_tolowerEc_nid_postfix();
 int APS5_VABI _WLitob_nid_postfix();
 int APS5_VABI _WGetfld_nid_postfix();
-[[noreturn]] void APS5_VABI _ZNKSbIwSt11char_traitsIwESaIwEE5_XlenEv_nid_postfix(const void* self);
-[[noreturn]] void APS5_VABI sceLibcInternalWideStringXran_nid_no_patch(const void* self);
 int APS5_VABI _Xp_getw_nid_postfix();
 int APS5_VABI _Xp_movx_nid_postfix();
 int APS5_VABI _Unlock_spin_lock_nid_postfix();

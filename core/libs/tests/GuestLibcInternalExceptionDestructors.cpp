@@ -4,7 +4,6 @@
 #include "prx/libc/include/ApplicationHeap.hpp"
 #include "prx/libc/include/GuestLocale.hpp"
 #include "prx/libc/include/general/VabiMacros.hpp"
-#include "prx/libSceLibcInternal/include/InventoryExports6.hpp"
 #include <array>
 #include <cstddef>
 #include <cstdio>
@@ -48,6 +47,14 @@ void CheckBadVariantAccess() {
     Require(releases == 0 && std::memcmp(object, &expected, sizeof(expected)) == 0, "bad_variant_access D1 leaves the object and its storage");
     _ZNSt18bad_variant_accessD0Ev_nid_postfix(object);
     Require(releases == 1 && lastReleased == object, "bad_variant_access D0 releases the object through operator delete");
+}
+
+void CheckBadException() {
+    auto* object = static_cast<LibcException::ExceptionObject*>(_Znwm_nid_postfix(sizeof(LibcException::ExceptionObject)));
+    *object = LibcException::ExceptionObject{&releases, "untouched"};
+    releases = 0;
+    sceLibcInternalBadExceptionDeletingDestructor_nid_no_patch(object);
+    Require(releases == 1 && lastReleased == object, "bad_exception D0 releases the object through operator delete");
 }
 
 void CheckFutureErrorCategory() {
@@ -142,6 +149,7 @@ int main() {
     CheckMessageDestructor(&sceLibcInternalUnderflowErrorBaseDestructor_nid_no_patch, "value too small");
     CheckBadVariantAccess();
     CheckFutureErrorCategory();
+    CheckBadException();
     CheckFutureError();
 
     std::puts("libc internal exception base-object destructor checks passed");

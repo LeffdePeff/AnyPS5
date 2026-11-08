@@ -1,5 +1,6 @@
 #include "prx/libc/include/Api.hpp"
 #include "prx/libSceLibcInternal/include/Api.hpp"
+#include "prx/libSceLibcInternal/include/RuntimeInternals.hpp"
 #include "prx/libc/include/FileStream.hpp"
 #include "prx/libc/include/general/VabiMacros.hpp"
 #include "SceTypes.hpp"
@@ -125,6 +126,10 @@ void APS5_VABI CallVariant(Variant variant, int status, int code, const char* fo
 int main() {
     const char* const savedName = __progname_nid_postfix;
     __progname_nid_postfix = "prog";
+    *__error_nid_postfix() = 34;
+    Require(_Geterrno_nid_postfix() == 34, "_Geterrno returns errno");
+    *__error_nid_postfix() = 0;
+    Require(_Geterrno_nid_postfix() == 0, "_Geterrno returns a cleared errno");
     const std::string noEntry = strerror_nid_postfix(2);
     const std::string denied = strerror_nid_postfix(13);
     {

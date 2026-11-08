@@ -5,10 +5,13 @@
 #include "prx/libc/include/general/VabiMacros.hpp"
 #include "SceTypes.hpp"
 #include "prx/libc/include/General.hpp"
+#include "prx/libSceLibcInternal/include/RuntimeInternals.hpp"
 #include <cstdarg>
+#include <cstdint>
 
 extern "C" {
 extern const char* __progname_nid_postfix;
+[[noreturn]] void abort_nid_postfix(std::uint64_t, std::uint64_t, std::uint64_t, std::uint64_t, std::uint64_t, std::uint64_t);
 
 }
 
@@ -64,6 +67,18 @@ void APS5_VABI err_set_file_nid_postfix(FileStream* stream) {
 
 void APS5_VABI err_set_exit_nid_postfix(ErrExit function) {
     g_errExit = function;
+}
+
+[[noreturn]] void APS5_VABI sceLibcInternalRngAbort_nid_no_patch(const char* message) {
+    if (message == nullptr) APS5_INVALID_ARG_EX;
+    fputs_nid_postfix(message, &_Stderr_nid_postfix);
+    fputc_nid_postfix('\n', &_Stderr_nid_postfix);
+    abort_nid_postfix(0, 0, 0, 0, 0, 0);
+}
+APS5_EXPORT("VrWUXy1gqn8", sceLibcInternalRngAbort_nid_no_patch);
+
+int APS5_VABI _Geterrno_nid_postfix() {
+    return *__error_nid_postfix();
 }
 
 void APS5_VABI vwarnc_nid_postfix(int code, const char* format, VaList* args) {
