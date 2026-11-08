@@ -37,6 +37,11 @@ void APS5_VABI sceLibcInternalIostreamErrorCategoryCompleteDestructor_nid_no_pat
 }
 APS5_EXPORT("27Z-Cx1jbkU", sceLibcInternalIostreamErrorCategoryCompleteDestructor_nid_no_patch);
 
+void APS5_VABI _ZNSt23_Generic_error_categoryD0Ev_nid_postfix(void* self) {
+    _ZNSt14error_categoryD1Ev_nid_postfix(static_cast<LibcException::CategoryObject*>(self));
+    _ZdlPv_nid_postfix(self);
+}
+
 LibcException::ErrorCode APS5_VABI sceLibcInternalSystemErrorCategoryDefaultErrorCondition_nid_no_patch(const LibcException::CategoryObject* self, int value) {
     return Slot<Condition>(_ZSt15system_categoryv_nid_postfix(), ConditionSlot)(self, value);
 }

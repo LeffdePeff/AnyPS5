@@ -57,6 +57,30 @@ struct GuardedStream {
     std::uint64_t after = 0x87654321;
 };
 
+std::int32_t Apply(StreamManipulator manipulator, std::int32_t flags) {
+    GuardedStream object;
+    object.stream.flags = flags;
+    object.stream.width = 3;
+    Require(manipulator.function(&object.stream, manipulator.argument) == &object.stream, "a manipulator returns its stream");
+    Require(object.before == 0x12345678 && object.after == 0x87654321 && object.stream.width == 3, "a manipulator writes only the format flags");
+    return object.stream.flags;
+}
+
+void CheckManipulators() {
+    const StreamManipulator octal = _ZSt7setbasei_nid_postfix(8);
+    Require(octal.argument == 8, "setbase keeps its argument");
+    Require(Apply(octal, 0x4051) == 0x4021, "setbase(8) replaces the base field with oct");
+    Require(Apply(_ZSt7setbasei_nid_postfix(10), 0x60) == 0x10, "setbase(10) selects dec");
+    Require(Apply(_ZSt7setbasei_nid_postfix(16), 0x211) == 0x241, "setbase(16) selects hex");
+    Require(Apply(_ZSt7setbasei_nid_postfix(2), 0x271) == 0x201, "another base clears the base field");
+    Require(Apply(_ZSt11setiosflagsNSt5_IosbIiE9_FmtflagsE_nid_postfix(0x10280), 0x1) == 0x281, "setiosflags sets the flags below 0x10000");
+    Require(Apply(_ZSt11setiosflagsNSt5_IosbIiE9_FmtflagsE_nid_postfix(0x10000), 0x10001) == 0x1, "setiosflags clears a masked flag above 0xffff");
+    Require(Apply(_ZSt13resetiosflagsNSt5_IosbIiE9_FmtflagsE_nid_postfix(0x30), 0x10271) == 0x10241, "resetiosflags clears the flags");
+    Require(Throws([] { _ZSt7setbasei_nid_postfix(8).function(nullptr, 8); }), "setbase rejects a null stream");
+    Require(Throws([] { _ZSt11setiosflagsNSt5_IosbIiE9_FmtflagsE_nid_postfix(1).function(nullptr, 1); }), "setiosflags rejects a null stream");
+    Require(Throws([] { _ZSt13resetiosflagsNSt5_IosbIiE9_FmtflagsE_nid_postfix(1).function(nullptr, 1); }), "resetiosflags rejects a null stream");
+}
+
 }
 
 int main() {
@@ -92,6 +116,8 @@ int main() {
     sceLibcInternalIosBaseDeletingDestructor_nid_no_patch(heapStream);
     Require(releases == 1 && lastReleased == heapStream, "the deleting destructor frees the stream through operator delete");
     Require(Throws([] { sceLibcInternalIosBaseDeletingDestructor_nid_no_patch(nullptr); }), "a null stream is rejected by the deleting destructor");
+
+    CheckManipulators();
 
     std::puts("libc internal ios_base destructor checks passed");
     return 0;
